@@ -28,8 +28,7 @@ func main() {
 	csvStorage := storage.NewCSVStorage(appConfig.GetDataFolderWithFallback())
 	appService := app.NewService(csvStorage, logger)
 
-	if err := appService.Run(appConfig); err != nil {
-		logger.Fatalf("Application failed: %v", err)
+	if runErr := appService.Run(appConfig); runErr != nil {
+		logger.Fatalf("Application failed: %v", runErr)
 	}
 }
-

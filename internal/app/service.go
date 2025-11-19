@@ -93,7 +93,10 @@ func (s *Service) LoadCategoryByYearWithGenerated(year int) (*entity.CategoryNam
 	return dataConfig, nil
 }
 
-func (s *Service) computeDayStylesForYear(year int, cfg *config.Config) (map[time.Time]entity.DayInfo, error) {
+func (s *Service) computeDayStylesForYear(
+	year int,
+	cfg *config.Config,
+) (map[time.Time]entity.DayInfo, error) {
 	dataConfig, err := s.LoadCategoryByYearWithGenerated(year)
 	if err != nil {
 		return nil, err
@@ -109,7 +112,7 @@ func (s *Service) renderAllYears(cfg *config.Config, styleService styles.StyleSe
 			return fmt.Errorf("failed to load data config for year %d: %w", year, err)
 		}
 
-		renderService := render.NewRenderService(year, dataConfig, cfg, styleService)
+		renderService := render.NewService(year, dataConfig, cfg, styleService)
 		renderService.SetMaxWidth(cfg.Rendering.MaxWidthInChars)
 
 		labeledCategories, err := s.storage.LoadLabeledCategories(year)

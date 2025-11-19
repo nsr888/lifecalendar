@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,17 +15,19 @@ import (
 	"github.com/nsr888/lifecalendar/internal/storage"
 	"github.com/nsr888/lifecalendar/internal/styles"
 	"github.com/nsr888/lifecalendar/pkg/colors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
-// DateCategoryInfo holds category information for a specific date
+// DateCategoryInfo holds category information for a specific date.
 type DateCategoryInfo struct {
 	CategoryType entity.CategoryType
 	Priority     int
 	HasUnderline bool
 }
 
-// RenderService provides calendar rendering functionality with unified style management
-type RenderService struct {
+// Service provides calendar rendering functionality with unified style management.
+type Service struct {
 	year            int
 	config          *entity.CategoryName
 	appConfig       *config.Config
@@ -35,8 +38,13 @@ type RenderService struct {
 	separatorWidth  int
 }
 
-func NewRenderService(year int, cfg *entity.CategoryName, appConfig *config.Config, styleService styles.StyleService) *RenderService {
-	rs := &RenderService{
+func NewService(
+	year int,
+	cfg *entity.CategoryName,
+	appConfig *config.Config,
+	styleService styles.StyleService,
+) *Service {
+	rs := &Service{
 		year:            year,
 		config:          cfg,
 		appConfig:       appConfig,
@@ -50,7 +58,7 @@ func NewRenderService(year int, cfg *entity.CategoryName, appConfig *config.Conf
 	return rs
 }
 
-func (rs *RenderService) SetMaxWidth(maxWidth int) {
+func (rs *Service) SetMaxWidth(maxWidth int) {
 	if maxWidth < 20 {
 		maxWidth = 20 // minimum readable width
 	}
@@ -58,7 +66,7 @@ func (rs *RenderService) SetMaxWidth(maxWidth int) {
 	rs.monthWidth = 20 // maintain minimum month width
 }
 
-func (rs *RenderService) calculateColumnsPerWidth() int {
+func (rs *Service) calculateColumnsPerWidth() int {
 	if rs.maxWidthInChars < rs.monthWidth {
 		return 1 // at least one column
 	}
@@ -68,17 +76,19 @@ func (rs *RenderService) calculateColumnsPerWidth() int {
 	return columns
 }
 
-// calculateLayout determines if side panel is possible and returns layout info
-func (rs *RenderService) calculateLayout() (useSidePanel bool, calendarCols int, sidePanelWidth int) {
+// calculateLayout determines if side panel is possible and returns layout info.
+func (rs *Service) calculateLayout() (bool, int, int) {
 	maxColsForCalendar := 4
 
 	// Calculate how many calendar columns would fit in full width
 	fullWidthCols := rs.calculateColumnsPerWidth()
 
 	// Use the lesser of full width calculation and 4
-	calendarCols = min(fullWidthCols, maxColsForCalendar)
+	calendarCols := min(fullWidthCols, maxColsForCalendar)
 
 	// Calculate width needed for calendar columns
+	var useSidePanel bool
+	var sidePanelWidth int
 	if calendarCols > 0 {
 		calendarWidth := calendarCols*rs.monthWidth + (calendarCols-1)*rs.separatorWidth
 		availableRightSpace := rs.maxWidthInChars - calendarWidth
@@ -93,12 +103,12 @@ func (rs *RenderService) calculateLayout() (useSidePanel bool, calendarCols int,
 	return useSidePanel, calendarCols, sidePanelWidth
 }
 
-func (rs *RenderService) RenderYearTitle(year int) {
+func (rs *Service) RenderYearTitle(year int) {
 	borderString := strings.Repeat("─", rs.maxWidthInChars)
 	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#595959"))
 	fmt.Println(borderStyle.Render(borderString))
 
-	title := fmt.Sprintf("%d", year)
+	title := strconv.Itoa(year)
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#d8d8d8")).
 		Bold(true).
@@ -110,7 +120,7 @@ func (rs *RenderService) RenderYearTitle(year int) {
 	fmt.Println(borderStyle.Render(borderString))
 }
 
-func (rs *RenderService) computeMonthBlocks() [][]string {
+func (rs *Service) computeMonthBlocks() [][]string {
 	allMonths := make([][]string, 12)
 	for m := 1; m <= 12; m++ {
 		name := rs.ctx.MonthNames[m]
@@ -125,12 +135,12 @@ func (rs *RenderService) computeMonthBlocks() [][]string {
 	return allMonths
 }
 
-func (rs *RenderService) getDayDisplay(dayDate time.Time) string {
+func (rs *Service) getDayDisplay(dayDate time.Time) string {
 	if dayDate.Year() != rs.year {
 		return "  "
 	}
 
-	dayNum := fmt.Sprintf("%d", dayDate.Day())
+	dayNum := strconv.Itoa(dayDate.Day())
 
 	// Default style for regular days
 	style := lipgloss.NewStyle().
@@ -157,8 +167,8 @@ func (rs *RenderService) getDayDisplay(dayDate time.Time) string {
 	return style.Render(dayNum)
 }
 
-// generateMonthLines creates the text lines for a single month
-func (rs *RenderService) generateMonthLines(name string, calData [][]int, month time.Month) []string {
+// generateMonthLines creates the text lines for a single month.
+func (rs *Service) generateMonthLines(name string, calData [][]int, month time.Month) []string {
 	var lines []string
 	monthHeaderStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#909090")).
@@ -191,8 +201,8 @@ func (rs *RenderService) generateMonthLines(name string, calData [][]int, month 
 	return lines
 }
 
-// printMonthRow prints a row of months side by side
-func (rs *RenderService) printMonthRow(rowMonths [][]string) string {
+// printMonthRow prints a row of months side by side.
+func (rs *Service) printMonthRow(rowMonths [][]string) string {
 	var content strings.Builder
 
 	maxLines := 0
@@ -202,7 +212,7 @@ func (rs *RenderService) printMonthRow(rowMonths [][]string) string {
 		}
 	}
 
-	for li := 0; li < maxLines; li++ {
+	for li := range maxLines {
 		var parts []string
 		for _, mLines := range rowMonths {
 			if li < len(mLines) {
@@ -218,91 +228,8 @@ func (rs *RenderService) printMonthRow(rowMonths [][]string) string {
 	return content.String()
 }
 
-// printLegend prints the color legend for all categories with background colors
-func (rs *RenderService) printLegend() {
-	// Collect all categories with background colors
-	type legendItem struct {
-		name  string
-		style lipgloss.Style
-	}
-
-	var legendItems []legendItem
-
-	// Iterate through all categories in the data
-	for categoryName, category := range rs.config.Categories {
-		// Skip weekends (typically just foreground color) and categories with no dates
-		if len(category.Dates) == 0 {
-			continue
-		}
-
-		style := rs.styleService.GetCategoryStyle(categoryName)
-
-		// Only include categories with background colors (check if style is different from default)
-		defaultStyle := lipgloss.NewStyle()
-		if style.GetBackground() != defaultStyle.GetBackground() {
-			// Format the category name for display (capitalize first letter, replace underscores with spaces)
-			displayName := strings.ReplaceAll(categoryName, "_", " ")
-
-			legendItems = append(legendItems, legendItem{
-				name:  displayName,
-				style: style,
-			})
-		}
-	}
-
-	// If no categories with background colors found, return
-	if len(legendItems) == 0 {
-		return
-	}
-
-	// Sort legend items by name for consistent ordering
-	sort.Slice(legendItems, func(i, j int) bool {
-		return legendItems[i].name < legendItems[j].name
-	})
-
-	// Find the maximum item length for formatting
-	maxItemLength := 0
-	for _, item := range legendItems {
-		if len(item.name) > maxItemLength {
-			maxItemLength = len(item.name)
-		}
-	}
-
-	// Calculate how many items fit per row
-	itemWidth := maxItemLength + 5
-	columns := (rs.maxWidthInChars + 2) / (itemWidth + 2)
-	if columns < 1 {
-		columns = 1
-	}
-
-	// Print legend in rows
-	for i := 0; i < len(legendItems); i += columns {
-		end := min(i+columns, len(legendItems))
-
-		var rowItems []string
-		for j := i; j < end; j++ {
-			item := fmt.Sprintf("%s %s",
-				legendItems[j].style.Render("  "),
-				lipgloss.NewStyle().Render(legendItems[j].name))
-			rowItems = append(rowItems, item)
-		}
-
-		fmt.Println(strings.Join(rowItems, "  "))
-	}
-}
-
-// centerString returns s centered to width w (truncate if too long)
-func centerString(s string, w int) string {
-	if len(s) >= w {
-		return s[:w]
-	}
-	left := (w - len(s)) / 2
-	right := w - len(s) - left
-	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
-}
-
-// countWorkingDays counts days in a date range, excluding weekends and public holidays
-func (rs *RenderService) countWorkingDays(start, end time.Time) int {
+// countWorkingDays counts days in a date range, excluding weekends and public holidays.
+func (rs *Service) countWorkingDays(start, end time.Time) int {
 	count := 0
 	for cur := start; !cur.After(end); cur = cur.AddDate(0, 0, 1) {
 		// Skip weekends
@@ -322,8 +249,8 @@ func (rs *RenderService) countWorkingDays(start, end time.Time) int {
 	return count
 }
 
-// calculateVacationDaysUsed calculates total vacation days used, excluding weekends and holidays
-func (rs *RenderService) calculateVacationDaysUsed() int {
+// calculateVacationDaysUsed calculates total vacation days used, excluding weekends and holidays.
+func (rs *Service) calculateVacationDaysUsed() int {
 	vacationCategory, exists := rs.config.Categories["vacations"]
 	if !exists {
 		return 0
@@ -371,8 +298,8 @@ func (rs *RenderService) calculateVacationDaysUsed() int {
 	return totalDays
 }
 
-// calculatePersonalDaysUsed calculates total personal days used, excluding weekends and holidays
-func (rs *RenderService) calculatePersonalDaysUsed() int {
+// calculatePersonalDaysUsed calculates total personal days used, excluding weekends and holidays.
+func (rs *Service) calculatePersonalDaysUsed() int {
 	personalCategory, exists := rs.config.Categories["personal_days"]
 	if !exists {
 		return 0
@@ -388,8 +315,8 @@ func (rs *RenderService) calculatePersonalDaysUsed() int {
 	return totalDays
 }
 
-// RenderCategoriesLabels prints categories with labeled entries respecting max width
-func (rs *RenderService) RenderCategoriesLabels(labeledCategories []storage.LabeledCategory) {
+// RenderCategoriesLabels prints categories with labeled entries respecting max width.
+func (rs *Service) RenderCategoriesLabels(labeledCategories []storage.LabeledCategory) {
 	if len(labeledCategories) == 0 {
 		return
 	}
@@ -427,8 +354,8 @@ func (rs *RenderService) RenderCategoriesLabels(labeledCategories []storage.Labe
 	}
 }
 
-// RenderStats prints vacation and personal day usage statistics respecting max width
-func (rs *RenderService) RenderStats() {
+// RenderStats prints vacation and personal day usage statistics respecting max width.
+func (rs *Service) RenderStats() {
 	colors.PrintHeader("Statistics:")
 	vacationDays := rs.calculateVacationDaysUsed()
 	personalDays := rs.calculatePersonalDaysUsed()
@@ -440,8 +367,8 @@ func (rs *RenderService) RenderStats() {
 	colors.PrintText(personalLine)
 }
 
-// generateLegendLines creates legend lines for side panel
-func (rs *RenderService) generateLegendLines() string {
+// generateLegendLines creates legend lines for side panel.
+func (rs *Service) generateLegendLines() string {
 	var lines strings.Builder
 
 	// Collect all categories with background colors
@@ -495,46 +422,11 @@ func (rs *RenderService) generateLegendLines() string {
 	return lines.String()
 }
 
-// wrapText wraps text to specified width with proper indentation
-func (rs *RenderService) wrapText(text string, width int, indent string) []string {
-	var lines []string
-
-	for len(text) > width {
-		// Find the best break point
-		breakPoint := width
-		for i := width - 1; i > width/3 && i > 0; i-- { // Search within last 1/3 of width
-			if text[i] == ' ' {
-				breakPoint = i
-				break
-			}
-		}
-
-		// If no space found, try dash
-		if breakPoint == width {
-			for i := width - 1; i > width/3 && i > 0; i-- {
-				if text[i] == '-' {
-					breakPoint = i
-					break
-				}
-			}
-		}
-
-		lines = append(lines, text[:breakPoint])
-		text = indent + text[breakPoint:]
-		if len(text) > 0 && text[0] == ' ' {
-			text = text[1:]
-		}
-	}
-
-	if len(text) > 0 {
-		lines = append(lines, text)
-	}
-
-	return lines
-}
-
-// generateCategoriesLines creates category lines for side panel
-func (rs *RenderService) generateCategoriesLines(labeledCategories []storage.LabeledCategory, width int) string {
+// generateCategoriesLines creates category lines for side panel.
+func (rs *Service) generateCategoriesLines(
+	labeledCategories []storage.LabeledCategory,
+	width int,
+) string {
 	var lines strings.Builder
 
 	if len(labeledCategories) == 0 {
@@ -575,9 +467,9 @@ func (rs *RenderService) generateCategoriesLines(labeledCategories []storage.Lab
 	return lines.String()
 }
 
-// calculateCategoryStats calculates statistics for all categories, considering priority
-// Each day is counted only for the highest priority category it belongs to
-func (rs *RenderService) calculateCategoryStats() map[string]int {
+// calculateCategoryStats calculates statistics for all categories, considering priority.
+// Each day is counted only for the highest priority category it belongs to.
+func (rs *Service) calculateCategoryStats() map[string]int {
 	stats := make(map[string]int)
 
 	// Get all dates in the year
@@ -587,7 +479,7 @@ func (rs *RenderService) calculateCategoryStats() map[string]int {
 	for currentDate := startDate; !currentDate.After(endDate); currentDate = currentDate.AddDate(0, 0, 1) {
 		// Find the highest priority category for this date
 		var winningCategory string
-		var winningPriority int = 999 // Start with high number (low priority)
+		winningPriority := 999 // Start with high number (low priority)
 
 		for categoryName, category := range rs.config.Categories {
 			if _, exists := category.Dates[currentDate]; exists {
@@ -608,7 +500,7 @@ func (rs *RenderService) calculateCategoryStats() map[string]int {
 	return stats
 }
 
-func (rs *RenderService) generateStatsLines(width int) string {
+func (rs *Service) generateStatsLines(width int) string {
 	var lines strings.Builder
 
 	lines.WriteString(colors.Header().Render("Statistics:") + "\n")
@@ -651,7 +543,7 @@ func (rs *RenderService) generateStatsLines(width int) string {
 		if stat.days > 0 { // Only show categories that have days
 			// Format category name for display (replace underscores with spaces and capitalize)
 			displayName := strings.ReplaceAll(stat.name, "_", " ")
-			displayName = strings.Title(displayName)
+			displayName = cases.Title(language.English).String(displayName)
 			line := fmt.Sprintf("%s: %d", displayName, stat.days)
 			l.Item(line)
 		}
@@ -662,12 +554,12 @@ func (rs *RenderService) generateStatsLines(width int) string {
 	return lines.String()
 }
 
-// RenderCompactYearView renders the calendar in a compact grid with configurable columns
-func (rs *RenderService) RenderCompactYearView() {
+// RenderCompactYearView renders the calendar in a compact grid with configurable columns.
+func (rs *Service) RenderCompactYearView() {
 	rs.RenderCompactYearViewWithSidePanel(nil)
 }
 
-func (rs *RenderService) RenderCompactYearViewWithSidePanel(labeledCategories []storage.LabeledCategory) {
+func (rs *Service) RenderCompactYearViewWithSidePanel(labeledCategories []storage.LabeledCategory) {
 	allMonths := rs.computeMonthBlocks()
 
 	useSidePanel, calendarCols, sidePanelWidth := rs.calculateLayout()
@@ -689,7 +581,7 @@ func (rs *RenderService) RenderCompactYearViewWithSidePanel(labeledCategories []
 	fmt.Println(mergedCols)
 }
 
-func (rs *RenderService) renderTwoColumnLayout(
+func (rs *Service) renderTwoColumnLayout(
 	allMonths [][]string,
 	calendarCols int,
 	sidePanelWidth int,
@@ -709,8 +601,8 @@ func (rs *RenderService) renderTwoColumnLayout(
 	fmt.Println(mergedCols)
 }
 
-// createLeftSidePanelContent creates content for left side column of side panel
-func (rs *RenderService) createLeftSidePanelContent(
+// createLeftSidePanelContent creates content for left side column of side panel.
+func (rs *Service) createLeftSidePanelContent(
 	allMonths [][]string,
 	calendarCols int,
 ) string {
@@ -725,7 +617,7 @@ func (rs *RenderService) createLeftSidePanelContent(
 	return content.String()
 }
 
-func (rs *RenderService) createRightSidePanelContent(
+func (rs *Service) createRightSidePanelContent(
 	labeledCategories []storage.LabeledCategory,
 	width int,
 ) string {

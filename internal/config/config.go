@@ -1,7 +1,7 @@
 package config
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"time"
@@ -10,7 +10,10 @@ import (
 	"golang.org/x/term"
 )
 
-const defaultConfigPath = "config.toml"
+const (
+	defaultConfigPath = "config.toml"
+	defaultDataFolder = "data"
+)
 
 type ColorStyle struct {
 	Fg     string `toml:"fg"`
@@ -21,13 +24,14 @@ type ColorStyle struct {
 
 type CategoryConfig struct {
 	ColorStyle
+
 	Priority int `toml:"priority"`
 }
 
 type Config struct {
-	Years     []int `toml:"years"`
+	Years      []int  `toml:"years"`
 	DataFolder string `toml:"data_folder"`
-	Rendering struct {
+	Rendering  struct {
 		MaxWidthInChars int   `toml:"max_width_in_chars"`
 		FirstWeekday    int   `toml:"first_weekday"`
 		WeekendDays     []int `toml:"weekend_days"`
@@ -39,7 +43,7 @@ func Load(configPath string) (*Config, error) {
 	config := &Config{}
 	currentYear := time.Now().Year()
 	config.Years = []int{currentYear}
-	config.DataFolder = "data" // Default data folder
+	config.DataFolder = defaultDataFolder // Default data folder
 	config.Rendering.MaxWidthInChars = getTerminalWidth()
 	config.Rendering.FirstWeekday = 0          // Monday
 	config.Rendering.WeekendDays = []int{5, 6} // Saturday, Sunday
@@ -68,7 +72,7 @@ func getTerminalWidth() int {
 }
 
 func generateColorFromHash(categoryName string) string {
-	hash := md5.Sum([]byte(categoryName))
+	hash := sha256.Sum256([]byte(categoryName))
 
 	// Generate hue from hash (0-360)
 	hue := int(hash[0]) * 141 % 360 // 141 is a prime to distribute colors well
@@ -137,7 +141,7 @@ func (c *Config) GetDataFolder() string {
 	if c.DataFolder != "" {
 		return c.DataFolder
 	}
-	return "data"
+	return defaultDataFolder
 }
 
 func (c *Config) GetDataFolderWithFallback() string {
@@ -149,7 +153,7 @@ func (c *Config) GetDataFolderWithFallback() string {
 
 	if primaryFolder != "data" {
 		if _, err := os.Stat("data"); err == nil {
-			return "data"
+			return defaultDataFolder
 		}
 	}
 

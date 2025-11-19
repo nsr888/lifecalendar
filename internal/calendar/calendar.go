@@ -43,15 +43,16 @@ func MonthCalendar(year int, month time.Month) [][]int {
 	return weeks
 }
 
-// CountDaysInYear counts vacation and personal days in a year
-func CountDaysInYear(cfg *entity.CategoryName, year int) (vacDays, persDays int) {
+// CountDaysInYear counts vacation and personal days in a year.
+func CountDaysInYear(cfg *entity.CategoryName, year int) (int, int) {
 	start := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
 	end := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local)
 	return CountDaysInPeriod(cfg, start, end)
 }
 
-// CountDaysInPeriod counts vacation and personal days in a period
-func CountDaysInPeriod(cfg *entity.CategoryName, start, end time.Time) (vacDays, persDays int) {
+// CountDaysInPeriod counts vacation and personal days in a period.
+func CountDaysInPeriod(cfg *entity.CategoryName, start, end time.Time) (int, int) {
+	var vacDays, persDays int
 	vacCat := cfg.Categories["vacations"]
 	persCat := cfg.Categories["personal_days"]
 	holCat := cfg.Categories["public_holidays"]
@@ -84,7 +85,7 @@ func CountDaysInPeriod(cfg *entity.CategoryName, start, end time.Time) (vacDays,
 			}
 		}
 	}
-	return
+	return vacDays, persDays
 }
 
 func daysInMonth(year int, month time.Month) int {
@@ -111,10 +112,6 @@ func isLeapYear(y int) bool {
 		return false
 	}
 	return y%4 == 0
-}
-
-func sameDay(a, b time.Time) bool {
-	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
 }
 
 func getDefaultMonthNames() map[int]string {

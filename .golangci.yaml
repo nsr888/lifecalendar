@@ -27,7 +27,7 @@ issues:
 
 formatters:
   enable:
-    - goimports # checks if the code and import statements are formatted according to the 'goimports' command
+    # - goimports # checks if the code and import statements are formatted according to the 'goimports' command
     - golines # checks if code is formatted, and fixes long lines
 
     ## you may want to enable
@@ -446,7 +446,7 @@ linters:
   exclusions:
     # Log a warning if an exclusion rule is unused.
     # Default: false
-    warn-unused: true
+    warn-unused: false
     # Predefined exclusion rules.
     # Default: []
     presets:

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ func (s *CSVStorage) IsYearDataExists(year int) bool {
 	return true
 }
 
-// GetCategoryNames returns all category names for a given year (excluding weekends)
+// GetCategoryNames returns all category names for a given year (excluding weekends).
 func (s *CSVStorage) GetCategoryNames(year int) ([]string, error) {
 	dataDir := fmt.Sprintf("%s/%d", s.dataFolder, year)
 
@@ -78,9 +79,9 @@ func (s *CSVStorage) LoadCategoryByYear(year int) (*entity.CategoryName, error) 
 	categories := make(map[string]*entity.Category)
 
 	for categoryName, filename := range categoryFiles {
-		category, err := s.loadCategoryFromFile(filename, entity.CategoryType(categoryName))
-		if err != nil {
-			return nil, fmt.Errorf("failed to load category %s: %w", categoryName, err)
+		category, loadErr := s.loadCategoryFromFile(filename, entity.CategoryType(categoryName))
+		if loadErr != nil {
+			return nil, fmt.Errorf("failed to load category %s: %w", categoryName, loadErr)
 		}
 		categories[categoryName] = category
 	}
@@ -91,7 +92,7 @@ func (s *CSVStorage) LoadCategoryByYear(year int) (*entity.CategoryName, error) 
 	}, nil
 }
 
-// getCategoryToFileMap scans the data directory for CSV files and returns a map of category name -> filename
+// getCategoryToFileMap scans the data directory for CSV files and returns a map of category name -> filename.
 func (s *CSVStorage) getCategoryToFileMap(dataDir string) (map[string]string, error) {
 	categoryFiles := make(map[string]string)
 
@@ -151,9 +152,9 @@ func (s *CSVStorage) loadCategoryFromFile(
 			continue
 		}
 
-		entry, err := s.parseCSVRecord(record, headers)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse record on line %d: %w", i+1, err)
+		entry, parseErr := s.parseCSVRecord(record, headers)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to parse record on line %d: %w", i+1, parseErr)
 		}
 
 		category.Entries = append(category.Entries, entry)
@@ -166,49 +167,75 @@ func (s *CSVStorage) loadCategoryFromFile(
 	return category, nil
 }
 
-func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEntry, error) {
-	var entry entity.CategoryEntry
-
-	// Map headers to record indices
+// createHeaderMap creates a mapping from normalized header names to column indices.
+func (s *CSVStorage) createHeaderMap(headers []string) map[string]int {
 	headerMap := make(map[string]int)
 	for i, header := range headers {
 		headerMap[strings.ToLower(strings.TrimSpace(header))] = i
 	}
+	return headerMap
+}
 
-	if dateStartIdx, exists := headerMap[dateStartCol]; exists && dateStartIdx < len(record) {
-		if date, err := time.ParseInLocation(dateLayout, strings.TrimSpace(record[dateStartIdx]), time.Local); err == nil {
-			entry.DateStart = date
+// parseDateField parses a date field from a CSV record if it exists.
+func (s *CSVStorage) parseDateField(
+	record []string,
+	headerMap map[string]int,
+	fieldName string,
+) (time.Time, bool) {
+	if idx, exists := headerMap[fieldName]; exists && idx < len(record) {
+		if date, err := time.ParseInLocation(dateLayout, strings.TrimSpace(record[idx]), time.Local); err == nil {
+			return date, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// parseDates parses start and end dates from a CSV record.
+func (s *CSVStorage) parseDates(record []string, headerMap map[string]int) (time.Time, time.Time) {
+	var startDate, endDate time.Time
+
+	// Try to parse start and end dates
+	if date, ok := s.parseDateField(record, headerMap, dateStartCol); ok {
+		startDate = date
+	}
+	if date, ok := s.parseDateField(record, headerMap, dateEndCol); ok {
+		endDate = date
+	}
+
+	// If no end date, try single date field
+	if endDate.IsZero() {
+		if date, ok := s.parseDateField(record, headerMap, dateCol); ok {
+			startDate = date
+			endDate = date
+		} else if !startDate.IsZero() {
+			endDate = startDate
 		}
 	}
 
-	if dateEndIdx, exists := headerMap[dateEndCol]; exists && dateEndIdx < len(record) {
-		if date, err := time.ParseInLocation(dateLayout, strings.TrimSpace(record[dateEndIdx]), time.Local); err == nil {
-			entry.DateEnd = date
-		}
-	}
+	return startDate, endDate
+}
 
-	// TODO: move to constants headerMap keys
-	if entry.DateEnd.IsZero() {
-		if dateIdx, exists := headerMap[dateCol]; exists && dateIdx < len(record) {
-			if date, err := time.ParseInLocation(dateLayout, strings.TrimSpace(record[dateIdx]), time.Local); err == nil {
-				entry.DateStart = date
-				entry.DateEnd = date
-			}
-		} else if !entry.DateStart.IsZero() {
-			entry.DateEnd = entry.DateStart
-		}
+// parseLabel parses the label from a CSV record.
+func (s *CSVStorage) parseLabel(record []string, headerMap map[string]int) string {
+	if idx, exists := headerMap[labelCol]; exists && idx < len(record) {
+		return strings.TrimSpace(record[idx])
 	}
+	if idx, exists := headerMap[descCol]; exists && idx < len(record) {
+		return strings.TrimSpace(record[idx])
+	}
+	return ""
+}
 
-	// Parse label (try "label", then "desc")
-	if labelIdx, exists := headerMap[labelCol]; exists && labelIdx < len(record) {
-		entry.Label = strings.TrimSpace(record[labelIdx])
-	} else if descIdx, exists := headerMap[descCol]; exists && descIdx < len(record) {
-		entry.Label = strings.TrimSpace(record[descIdx])
-	}
+func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEntry, error) {
+	var entry entity.CategoryEntry
+
+	headerMap := s.createHeaderMap(headers)
+	entry.DateStart, entry.DateEnd = s.parseDates(record, headerMap)
+	entry.Label = s.parseLabel(record, headerMap)
 
 	// Validate entry
 	if entry.DateStart.IsZero() || entry.DateEnd.IsZero() {
-		return entity.CategoryEntry{}, fmt.Errorf("invalid date range")
+		return entity.CategoryEntry{}, errors.New("invalid date range")
 	}
 
 	if entry.Label == "" {
@@ -218,7 +245,7 @@ func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEn
 	return entry, nil
 }
 
-// LoadLabeledCategories loads all categories that have entries with non-empty labels
+// LoadLabeledCategories loads all categories that have entries with non-empty labels.
 func (s *CSVStorage) LoadLabeledCategories(year int) ([]LabeledCategory, error) {
 	data, err := s.LoadCategoryByYear(year)
 	if err != nil {

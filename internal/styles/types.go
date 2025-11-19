@@ -3,12 +3,12 @@ package styles
 import (
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/nsr888/lifecalendar/internal/config"
 	"github.com/nsr888/lifecalendar/internal/entity"
-	"github.com/charmbracelet/lipgloss"
 )
 
-// StyleService provides unified style management for categories and day-level styling
+// StyleService provides unified style management for categories and day-level styling.
 type StyleService interface {
 	// Visual style management
 	GetCategoryStyle(category string) lipgloss.Style
@@ -22,7 +22,7 @@ type StyleService interface {
 	GetPriority(category entity.CategoryType) int
 }
 
-// Service implements StyleService
+// Service implements StyleService.
 type Service struct {
 	config     *config.Config
 	categories map[string]lipgloss.Style
@@ -30,7 +30,7 @@ type Service struct {
 	storage    Storage
 }
 
-// Storage interface for data access
+// Storage interface for data access.
 type Storage interface {
 	LoadCategoryByYear(year int) (*entity.CategoryName, error)
 	IsYearDataExists(year int) bool

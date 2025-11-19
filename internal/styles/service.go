@@ -4,12 +4,16 @@ import (
 	"maps"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/nsr888/lifecalendar/internal/config"
 	"github.com/nsr888/lifecalendar/internal/entity"
-	"github.com/charmbracelet/lipgloss"
 )
 
-func NewService(cfg *config.Config, storage Storage, dayStyles map[time.Time]entity.DayInfo) *Service {
+func NewService(
+	cfg *config.Config,
+	storage Storage,
+	dayStyles map[time.Time]entity.DayInfo,
+) *Service {
 	return &Service{
 		config:     cfg,
 		categories: GenerateCategoryStyles(cfg.Categories),
@@ -44,7 +48,11 @@ func (s *Service) GetAllDayStyles() map[time.Time]entity.DayInfo {
 	return result
 }
 
-func ComputeYearStyles(config *config.Config, year int, data *entity.CategoryName) (map[time.Time]entity.DayInfo, error) {
+func ComputeYearStyles(
+	config *config.Config,
+	year int,
+	data *entity.CategoryName,
+) (map[time.Time]entity.DayInfo, error) {
 	startDate := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
 	endDate := time.Date(year, 12, 31, 0, 0, 0, 0, time.Local)
 
@@ -52,7 +60,7 @@ func ComputeYearStyles(config *config.Config, year int, data *entity.CategoryNam
 
 	for currentDate := startDate; !currentDate.After(endDate); currentDate = currentDate.AddDate(0, 0, 1) {
 		var winningCategory string
-		var winningPriority int = 999 // Start with high number (low priority)
+		winningPriority := 999 // Start with high number (low priority)
 
 		// Check all categories for this date
 		for categoryName, category := range data.Categories {

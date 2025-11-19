@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/jinzhu/configor v1.2.2
 	golang.org/x/term v0.36.0
+	golang.org/x/text v0.31.0
 )
 
 require (
