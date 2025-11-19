@@ -1,0 +1,13 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+data_home/
+config_home.toml
+*.egg-info
+
+# Virtual environments
+.venv
+prompts/
