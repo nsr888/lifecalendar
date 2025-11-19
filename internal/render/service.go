@@ -50,9 +50,9 @@ func NewService(
 		appConfig:       appConfig,
 		ctx:             calendar.NewRenderContext(),
 		styleService:    styleService,
-		maxWidthInChars: 80, // default, will be overridden
-		monthWidth:      20, // default, will be calculated
-		separatorWidth:  2,  // 2 spaces between months
+		maxWidthInChars: 80,
+		monthWidth:      20,
+		separatorWidth:  2,
 	}
 
 	return rs
@@ -60,40 +60,35 @@ func NewService(
 
 func (rs *Service) SetMaxWidth(maxWidth int) {
 	if maxWidth < 20 {
-		maxWidth = 20 // minimum readable width
+		maxWidth = 20
 	}
 	rs.maxWidthInChars = maxWidth
-	rs.monthWidth = 20 // maintain minimum month width
+	rs.monthWidth = 20
 }
 
 func (rs *Service) calculateColumnsPerWidth() int {
 	if rs.maxWidthInChars < rs.monthWidth {
-		return 1 // at least one column
+		return 1
 	}
 
 	columnsCalc := (rs.maxWidthInChars + rs.separatorWidth) / (rs.monthWidth + rs.separatorWidth)
-	columns := min(max(columnsCalc, 1), 4) // between 1 and 4 (maximum 4 months per row)
+	columns := min(max(columnsCalc, 1), 4)
 	return columns
 }
 
 // calculateLayout determines if side panel is possible and returns layout info.
 func (rs *Service) calculateLayout() (bool, int, int) {
 	maxColsForCalendar := 4
-
-	// Calculate how many calendar columns would fit in full width
 	fullWidthCols := rs.calculateColumnsPerWidth()
 
-	// Use the lesser of full width calculation and 4
 	calendarCols := min(fullWidthCols, maxColsForCalendar)
 
-	// Calculate width needed for calendar columns
 	var useSidePanel bool
 	var sidePanelWidth int
 	if calendarCols > 0 {
 		calendarWidth := calendarCols*rs.monthWidth + (calendarCols-1)*rs.separatorWidth
 		availableRightSpace := rs.maxWidthInChars - calendarWidth
 
-		// Use side panel if we have at least 40 characters available
 		useSidePanel = availableRightSpace >= 40
 		if useSidePanel {
 			sidePanelWidth = availableRightSpace
@@ -112,7 +107,6 @@ func (rs *Service) RenderYearTitle(year int) {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#d8d8d8")).
 		Bold(true).
-		// Italic(true).
 		Width(rs.maxWidthInChars).
 		AlignHorizontal(lipgloss.Center)
 	fmt.Println(titleStyle.Render(title))
@@ -142,7 +136,6 @@ func (rs *Service) getDayDisplay(dayDate time.Time) string {
 
 	dayNum := strconv.Itoa(dayDate.Day())
 
-	// Default style for regular days
 	style := lipgloss.NewStyle().
 		Width(2).
 		Align(lipgloss.Right).
@@ -151,15 +144,9 @@ func (rs *Service) getDayDisplay(dayDate time.Time) string {
 	if info, exists := rs.styleService.GetDayStyle(dayDate); exists {
 		categoryStyle := rs.styleService.GetCategoryStyle(info.Category)
 
-		// Start with category style as base, then apply our constraints
 		style = categoryStyle.
 			Width(2).
 			Align(lipgloss.Right)
-
-		// Add underline if needed (for plans)
-		// if info.HasUnderline {
-		// 	style = style.Italic(true)
-		// }
 
 		return style.Render(dayNum)
 	}
@@ -186,14 +173,13 @@ func (rs *Service) generateMonthLines(name string, calData [][]int, month time.M
 
 	for _, week := range calData {
 		var cells []string
-		for dow, dayNum := range week {
+		for _, dayNum := range week {
 			if dayNum == 0 {
 				cells = append(cells, "  ")
 				continue
 			}
 			d := time.Date(rs.year, month, dayNum, 0, 0, 0, 0, time.Local)
 			cells = append(cells, rs.getDayDisplay(d))
-			_ = dow // ensure we maintain 7 cols
 		}
 		line := strings.Join(cells, " ")
 		lines = append(lines, line)
@@ -232,12 +218,10 @@ func (rs *Service) printMonthRow(rowMonths [][]string) string {
 func (rs *Service) countWorkingDays(start, end time.Time) int {
 	count := 0
 	for cur := start; !cur.After(end); cur = cur.AddDate(0, 0, 1) {
-		// Skip weekends
 		if cur.Weekday() == time.Saturday || cur.Weekday() == time.Sunday {
 			continue
 		}
 
-		// Skip public holidays
 		if holidayCategory, exists := rs.config.Categories["public_holidays"]; exists {
 			if _, isHoliday := holidayCategory.Dates[cur]; isHoliday {
 				continue
@@ -256,7 +240,6 @@ func (rs *Service) calculateVacationDaysUsed() int {
 		return 0
 	}
 
-	// Get all vacation dates and sort them
 	var vacationDates []time.Time
 	for date := range vacationCategory.Dates {
 		if date.Year() == rs.year {
@@ -268,19 +251,16 @@ func (rs *Service) calculateVacationDaysUsed() int {
 		return 0
 	}
 
-	// Sort dates
 	sort.Slice(vacationDates, func(i, j int) bool {
 		return vacationDates[i].Before(vacationDates[j])
 	})
 
-	// Group dates into continuous ranges and count working days
 	totalDays := 0
 	i := 0
 	for i < len(vacationDates) {
 		rangeStart := vacationDates[i]
 		rangeEnd := rangeStart
 
-		// Find continuous range
 		for i+1 < len(vacationDates) {
 			nextDate := vacationDates[i+1]
 			if nextDate.Equal(rangeEnd.AddDate(0, 0, 1)) {
@@ -332,7 +312,6 @@ func (rs *Service) RenderCategoriesLabels(labeledCategories []storage.LabeledCat
 			startStr := entry.DateStart.Format("02.01")
 			endStr := entry.DateEnd.Format("02.01")
 
-			// Calculate total days (including weekends)
 			totalDays := int(entry.DateEnd.Sub(entry.DateStart).Hours()/24) + 1
 			var daysText string
 			if totalDays == 1 {
@@ -341,7 +320,6 @@ func (rs *Service) RenderCategoriesLabels(labeledCategories []storage.LabeledCat
 				daysText = fmt.Sprintf("%d days", totalDays)
 			}
 
-			// Create prefix with date range and days count
 			dateRangeText := fmt.Sprintf("%s-%s", startStr, endStr)
 			techInfo := fmt.Sprintf("%s (%s)", dateRangeText, daysText)
 			techInfoStyle := colors.Text().Bold(true)
@@ -371,7 +349,6 @@ func (rs *Service) RenderStats() {
 func (rs *Service) generateLegendLines() string {
 	var lines strings.Builder
 
-	// Collect all categories with background colors
 	type legendItem struct {
 		name  string
 		style lipgloss.Style
@@ -446,7 +423,6 @@ func (rs *Service) generateCategoriesLines(
 			startStr := entry.DateStart.Format("02.01")
 			endStr := entry.DateEnd.Format("02.01")
 
-			// Calculate total days
 			totalDays := int(entry.DateEnd.Sub(entry.DateStart).Hours()/24) + 1
 			var daysText string
 			if totalDays == 1 {
@@ -468,18 +444,15 @@ func (rs *Service) generateCategoriesLines(
 }
 
 // calculateCategoryStats calculates statistics for all categories, considering priority.
-// Each day is counted only for the highest priority category it belongs to.
 func (rs *Service) calculateCategoryStats() map[string]int {
 	stats := make(map[string]int)
 
-	// Get all dates in the year
 	startDate := time.Date(rs.year, 1, 1, 0, 0, 0, 0, time.Local)
 	endDate := time.Date(rs.year, 12, 31, 0, 0, 0, 0, time.Local)
 
 	for currentDate := startDate; !currentDate.After(endDate); currentDate = currentDate.AddDate(0, 0, 1) {
-		// Find the highest priority category for this date
 		var winningCategory string
-		winningPriority := 999 // Start with high number (low priority)
+		winningPriority := 999
 
 		for categoryName, category := range rs.config.Categories {
 			if _, exists := category.Dates[currentDate]; exists {
@@ -491,7 +464,6 @@ func (rs *Service) calculateCategoryStats() map[string]int {
 			}
 		}
 
-		// If we found a category, count this day for it
 		if winningCategory != "" {
 			stats[winningCategory]++
 		}
@@ -505,7 +477,6 @@ func (rs *Service) generateStatsLines(width int) string {
 
 	lines.WriteString(colors.Header().Render("Statistics:") + "\n")
 
-	// Calculate statistics automatically for all categories
 	categoryStats := rs.calculateCategoryStats()
 
 	l := list.New().
@@ -513,7 +484,6 @@ func (rs *Service) generateStatsLines(width int) string {
 		EnumeratorStyle(colors.Text().MarginRight(1)).
 		ItemStyle(colors.Text().Width(width - 4))
 
-	// Sort categories by priority for consistent display
 	type categoryStat struct {
 		name     string
 		priority int
@@ -530,7 +500,6 @@ func (rs *Service) generateStatsLines(width int) string {
 		})
 	}
 
-	// Sort by priority (ascending) and then by name
 	sort.Slice(sortedStats, func(i, j int) bool {
 		if sortedStats[i].priority == sortedStats[j].priority {
 			return sortedStats[i].name < sortedStats[j].name
@@ -538,10 +507,8 @@ func (rs *Service) generateStatsLines(width int) string {
 		return sortedStats[i].priority < sortedStats[j].priority
 	})
 
-	// Display statistics
 	for _, stat := range sortedStats {
-		if stat.days > 0 { // Only show categories that have days
-			// Format category name for display (replace underscores with spaces and capitalize)
+		if stat.days > 0 {
 			displayName := strings.ReplaceAll(stat.name, "_", " ")
 			displayName = cases.Title(language.English).String(displayName)
 			line := fmt.Sprintf("%s: %d", displayName, stat.days)
@@ -564,13 +531,11 @@ func (rs *Service) RenderCompactYearViewWithSidePanel(labeledCategories []storag
 
 	useSidePanel, calendarCols, sidePanelWidth := rs.calculateLayout()
 
-	// Render with side panel if possible
 	if useSidePanel && labeledCategories != nil {
 		rs.renderTwoColumnLayout(allMonths, calendarCols, sidePanelWidth, labeledCategories)
 		return
 	}
 
-	// Fallback to single column layout
 	leftContent := rs.createLeftSidePanelContent(allMonths, calendarCols)
 	rightContent := rs.createRightSidePanelContent(labeledCategories, rs.maxWidthInChars)
 	mergedCols := lipgloss.JoinVertical(
@@ -587,7 +552,7 @@ func (rs *Service) renderTwoColumnLayout(
 	sidePanelWidth int,
 	labeledCategories []storage.LabeledCategory,
 ) {
-	paddingWidth := 4 // spaces between calendar and side panel
+	paddingWidth := 4
 	leftContent := rs.createLeftSidePanelContent(allMonths, calendarCols)
 	rightContent := rs.createRightSidePanelContent(labeledCategories, sidePanelWidth-paddingWidth)
 
@@ -623,19 +588,16 @@ func (rs *Service) createRightSidePanelContent(
 ) string {
 	var content strings.Builder
 
-	// legend
 	legend := rs.generateLegendLines()
 	legend2 := lipgloss.NewStyle().Width(width).Render(legend)
 	content.WriteString(legend2)
 
-	// categories
 	if len(labeledCategories) > 0 {
-		content.WriteString("\n") // Add spacing
+		content.WriteString("\n")
 		categoriesLines := rs.generateCategoriesLines(labeledCategories, width)
 		content.WriteString(categoriesLines)
 	}
 
-	// statistics
 	content.WriteString(rs.generateStatsLines(width))
 
 	return content.String()

@@ -8,7 +8,7 @@ import (
 
 func NewRenderContext() *entity.RenderContext {
 	return &entity.RenderContext{
-		FirstWeekday: 0, // Monday
+		FirstWeekday: 0,
 		WeekendDays:  getDefaultWeekendDays(),
 		MonthNames:   getDefaultMonthNames(),
 		WeekdayNames: getDefaultWeekdayNames(),
@@ -17,7 +17,7 @@ func NewRenderContext() *entity.RenderContext {
 
 func MonthCalendar(year int, month time.Month) [][]int {
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-	weekdayFirst := (int(firstOfMonth.Weekday()) + 6) % 7 // Monday=0
+	weekdayFirst := (int(firstOfMonth.Weekday()) + 6) % 7
 
 	dim := daysInMonth(year, month)
 
@@ -60,7 +60,7 @@ func CountDaysInPeriod(cfg *entity.CategoryName, start, end time.Time) (int, int
 	ctx := NewRenderContext()
 
 	for cur := start; cur.Before(end); cur = cur.AddDate(0, 0, 1) {
-		weekday := (int(cur.Weekday()) + 6) % 7 // Monday=0
+		weekday := (int(cur.Weekday()) + 6) % 7
 
 		// Skip weekends
 		if _, isWknd := ctx.WeekendDays[weekday]; isWknd {
@@ -137,7 +137,7 @@ func getDefaultWeekdayNames() []string {
 
 func getDefaultWeekendDays() map[int]struct{} {
 	return map[int]struct{}{
-		5: {}, // Saturday
-		6: {}, // Sunday
+		5: {},
+		6: {},
 	}
 }

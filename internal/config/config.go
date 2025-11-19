@@ -43,10 +43,10 @@ func Load(configPath string) (*Config, error) {
 	config := &Config{}
 	currentYear := time.Now().Year()
 	config.Years = []int{currentYear}
-	config.DataFolder = defaultDataFolder // Default data folder
+	config.DataFolder = defaultDataFolder
 	config.Rendering.MaxWidthInChars = getTerminalWidth()
-	config.Rendering.FirstWeekday = 0          // Monday
-	config.Rendering.WeekendDays = []int{5, 6} // Saturday, Sunday
+	config.Rendering.FirstWeekday = 0
+	config.Rendering.WeekendDays = []int{5, 6}
 
 	config.Categories = make(map[string]CategoryConfig)
 
@@ -67,17 +67,13 @@ func getTerminalWidth() int {
 		}
 	}
 
-	// Fallback for non-terminal environments or errors
 	return 80
 }
 
 func generateColorFromHash(categoryName string) string {
 	hash := sha256.Sum256([]byte(categoryName))
 
-	// Generate hue from hash (0-360)
-	hue := int(hash[0]) * 141 % 360 // 141 is a prime to distribute colors well
-
-	// Convert HSL to RGB with fixed saturation and lightness for good visibility
+	hue := int(hash[0]) * 141 % 360
 	saturation := 0.7
 	lightness := 0.4
 
@@ -133,7 +129,7 @@ func (c *Config) GetCategoryConfig(categoryName string) CategoryConfig {
 			Bg: bgColor,
 			Fg: fgColor,
 		},
-		Priority: 999, // Low priority for unknown categories
+		Priority: 999,
 	}
 }
 

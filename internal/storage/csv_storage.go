@@ -194,7 +194,6 @@ func (s *CSVStorage) parseDateField(
 func (s *CSVStorage) parseDates(record []string, headerMap map[string]int) (time.Time, time.Time) {
 	var startDate, endDate time.Time
 
-	// Try to parse start and end dates
 	if date, ok := s.parseDateField(record, headerMap, dateStartCol); ok {
 		startDate = date
 	}
@@ -202,7 +201,6 @@ func (s *CSVStorage) parseDates(record []string, headerMap map[string]int) (time
 		endDate = date
 	}
 
-	// If no end date, try single date field
 	if endDate.IsZero() {
 		if date, ok := s.parseDateField(record, headerMap, dateCol); ok {
 			startDate = date
@@ -233,7 +231,6 @@ func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEn
 	entry.DateStart, entry.DateEnd = s.parseDates(record, headerMap)
 	entry.Label = s.parseLabel(record, headerMap)
 
-	// Validate entry
 	if entry.DateStart.IsZero() || entry.DateEnd.IsZero() {
 		return entity.CategoryEntry{}, errors.New("invalid date range")
 	}
@@ -245,7 +242,6 @@ func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEn
 	return entry, nil
 }
 
-// LoadLabeledCategories loads all categories that have entries with non-empty labels.
 func (s *CSVStorage) LoadLabeledCategories(year int) ([]LabeledCategory, error) {
 	data, err := s.LoadCategoryByYear(year)
 	if err != nil {
@@ -254,7 +250,6 @@ func (s *CSVStorage) LoadLabeledCategories(year int) ([]LabeledCategory, error) 
 
 	var labeledCategories []LabeledCategory
 
-	// Iterate through all categories and collect those with labeled entries
 	for categoryName, category := range data.Categories {
 		var labeledEntries []CategoryEntry
 

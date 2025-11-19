@@ -60,9 +60,8 @@ func ComputeYearStyles(
 
 	for currentDate := startDate; !currentDate.After(endDate); currentDate = currentDate.AddDate(0, 0, 1) {
 		var winningCategory string
-		winningPriority := 999 // Start with high number (low priority)
+		winningPriority := 999
 
-		// Check all categories for this date
 		for categoryName, category := range data.Categories {
 			if _, exists := category.Dates[currentDate]; exists {
 				categoryConfig := config.GetCategoryConfig(categoryName)
@@ -73,7 +72,6 @@ func ComputeYearStyles(
 			}
 		}
 
-		// Store the winning category for this date
 		if winningCategory != "" {
 			result[currentDate] = entity.DayInfo{
 				Category: winningCategory,
@@ -90,7 +88,7 @@ func (s *Service) GetPriority(category entity.CategoryType) int {
 	if config, exists := s.config.Categories[categoryName]; exists {
 		return config.Priority
 	}
-	return 999 // High number = low priority
+	return 999
 }
 
 func GenerateCategoryStyles(categories map[string]config.CategoryConfig) map[string]lipgloss.Style {
