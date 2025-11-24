@@ -2,6 +2,8 @@
 
 A minimal, simple Go CLI tool for generating life events calendars with color-coded days and plan tracking.
 
+<img width="2537" height="1179" alt="screenshot" src="https://github.com/user-attachments/assets/4bc9cad7-3950-47c1-a5e1-9dac8e980c9c" />
+
 ## Features
 
 - **Calendar Generation**: Month-by-month calendars for specified years
