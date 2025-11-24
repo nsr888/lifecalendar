@@ -53,34 +53,6 @@ make clean
 
 Edit `config.toml` to customize years, categories, and colors:
 
-### Year Configuration
-
-```toml
-# Years to render calendars for (optional - defaults to current year if not specified)
-years = [2025, 2026]     # Multiple years (rendered separately)
-# years = [2025]          # Single year
-# years = []              # Empty array will use current year
-```
-
-### Full Configuration Example
-
-```toml
-# Years to render
-years = [2025, 2026]
-
-
-# Rendering settings
-[rendering]
-first_weekday = 0        # Monday = 0, Sunday = 6
-weekend_days = [5, 6]    # Saturday = 5, Sunday = 6
-
-# Category colors (can be overridden in CSV files)
-[colors]
-public_holidays = "darkred"
-vacations = "darkgreen"
-personal_days = "darkblue"
-```
-
 ### Data Organization
 
 Calendar data is organized by year in the `data/` directory:
@@ -90,12 +62,10 @@ data/
 ├── 2025/
 │   ├── public_holidays.csv
 │   ├── vacations.csv
-│   ├── personal_days.csv
 │   └── plans.csv
 └── 2026/
     ├── public_holidays.csv
     ├── vacations.csv
-    ├── personal_days.csv
     └── plans.csv
 ```
 
@@ -123,4 +93,4 @@ The codebase follows Go's simplicity principles:
 ## Requirements
 
 - Go 1.24.2+
-- `golangci-lint` for linting (optional)
+- docker for linting
