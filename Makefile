@@ -10,4 +10,4 @@ lint:
 	@echo "Running golangci-lint..."
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.6.2 golangci-lint run --config .golangci.yaml
 
-.DEFAULT_GOAL := run
+.DEFAULT_GOAL := home

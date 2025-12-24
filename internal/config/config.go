@@ -32,9 +32,10 @@ type Config struct {
 	Years      []int  `toml:"years"`
 	DataFolder string `toml:"data_folder"`
 	Rendering  struct {
-		MaxWidthInChars int   `toml:"max_width_in_chars"`
-		FirstWeekday    int   `toml:"first_weekday"`
-		WeekendDays     []int `toml:"weekend_days"`
+		MaxWidthInChars int    `toml:"max_width_in_chars"`
+		FirstWeekday    int    `toml:"first_weekday"`
+		WeekendDays     []int  `toml:"weekend_days"`
+		Format          string `toml:"format"`
 	} `toml:"rendering"`
 	Categories map[string]CategoryConfig `toml:"categories"`
 }
@@ -47,6 +48,7 @@ func Load(configPath string) (*Config, error) {
 	config.Rendering.MaxWidthInChars = getTerminalWidth()
 	config.Rendering.FirstWeekday = 0
 	config.Rendering.WeekendDays = []int{5, 6}
+	config.Rendering.Format = "compact"
 
 	config.Categories = make(map[string]CategoryConfig)
 

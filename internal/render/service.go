@@ -155,7 +155,11 @@ func (rs *Service) getDayDisplay(dayDate time.Time) string {
 }
 
 // generateMonthLines creates the text lines for a single month.
-func (rs *Service) generateMonthLines(name string, calData [][]int, month time.Month) []string {
+func (rs *Service) generateMonthLines(
+	name string,
+	calData [][]int,
+	month time.Month,
+) []string {
 	var lines []string
 	monthHeaderStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#909090")).
@@ -202,7 +206,10 @@ func (rs *Service) printMonthRow(rowMonths [][]string) string {
 		var parts []string
 		for _, mLines := range rowMonths {
 			if li < len(mLines) {
-				parts = append(parts, fmt.Sprintf("%-*s", rs.monthWidth, mLines[li]))
+				parts = append(
+					parts,
+					fmt.Sprintf("%-*s", rs.monthWidth, mLines[li]),
+				)
 			} else {
 				parts = append(parts, strings.Repeat(" ", rs.monthWidth))
 			}
@@ -212,137 +219,6 @@ func (rs *Service) printMonthRow(rowMonths [][]string) string {
 	}
 
 	return content.String()
-}
-
-// countWorkingDays counts days in a date range, excluding weekends and public holidays.
-func (rs *Service) countWorkingDays(start, end time.Time) int {
-	count := 0
-	for cur := start; !cur.After(end); cur = cur.AddDate(0, 0, 1) {
-		if cur.Weekday() == time.Saturday || cur.Weekday() == time.Sunday {
-			continue
-		}
-
-		if holidayCategory, exists := rs.config.Categories["public_holidays"]; exists {
-			if _, isHoliday := holidayCategory.Dates[cur]; isHoliday {
-				continue
-			}
-		}
-
-		count++
-	}
-	return count
-}
-
-// calculateVacationDaysUsed calculates total vacation days used, excluding weekends and holidays.
-func (rs *Service) calculateVacationDaysUsed() int {
-	vacationCategory, exists := rs.config.Categories["vacations"]
-	if !exists {
-		return 0
-	}
-
-	var vacationDates []time.Time
-	for date := range vacationCategory.Dates {
-		if date.Year() == rs.year {
-			vacationDates = append(vacationDates, date)
-		}
-	}
-
-	if len(vacationDates) == 0 {
-		return 0
-	}
-
-	sort.Slice(vacationDates, func(i, j int) bool {
-		return vacationDates[i].Before(vacationDates[j])
-	})
-
-	totalDays := 0
-	i := 0
-	for i < len(vacationDates) {
-		rangeStart := vacationDates[i]
-		rangeEnd := rangeStart
-
-		for i+1 < len(vacationDates) {
-			nextDate := vacationDates[i+1]
-			if nextDate.Equal(rangeEnd.AddDate(0, 0, 1)) {
-				rangeEnd = nextDate
-				i++
-			} else {
-				break
-			}
-		}
-
-		totalDays += rs.countWorkingDays(rangeStart, rangeEnd)
-		i++
-	}
-
-	return totalDays
-}
-
-// calculatePersonalDaysUsed calculates total personal days used, excluding weekends and holidays.
-func (rs *Service) calculatePersonalDaysUsed() int {
-	personalCategory, exists := rs.config.Categories["personal_days"]
-	if !exists {
-		return 0
-	}
-
-	totalDays := 0
-	for date := range personalCategory.Dates {
-		if date.Year() == rs.year {
-			totalDays += rs.countWorkingDays(date, date)
-		}
-	}
-
-	return totalDays
-}
-
-// RenderCategoriesLabels prints categories with labeled entries respecting max width.
-func (rs *Service) RenderCategoriesLabels(labeledCategories []storage.LabeledCategory) {
-	if len(labeledCategories) == 0 {
-		return
-	}
-
-	for _, category := range labeledCategories {
-		colors.PrintHeader(category.Name)
-
-		l := list.New().
-			Enumerator(list.Dash).
-			ItemStyle(lipgloss.NewStyle().Width(rs.maxWidthInChars - 4))
-
-		for _, entry := range category.Entries {
-			startStr := entry.DateStart.Format("02.01")
-			endStr := entry.DateEnd.Format("02.01")
-
-			totalDays := int(entry.DateEnd.Sub(entry.DateStart).Hours()/24) + 1
-			var daysText string
-			if totalDays == 1 {
-				daysText = "1 day"
-			} else {
-				daysText = fmt.Sprintf("%d days", totalDays)
-			}
-
-			dateRangeText := fmt.Sprintf("%s-%s", startStr, endStr)
-			techInfo := fmt.Sprintf("%s (%s)", dateRangeText, daysText)
-			techInfoStyle := colors.Text().Bold(true)
-			techInfo = techInfoStyle.Render(techInfo)
-			entryDescStyle := colors.Text()
-			entryDesc := entryDescStyle.Render(entry.Label)
-			l.Item(fmt.Sprintf("%s - %s", techInfo, entryDesc))
-		}
-		fmt.Println(l)
-	}
-}
-
-// RenderStats prints vacation and personal day usage statistics respecting max width.
-func (rs *Service) RenderStats() {
-	colors.PrintHeader("Statistics:")
-	vacationDays := rs.calculateVacationDaysUsed()
-	personalDays := rs.calculatePersonalDaysUsed()
-
-	vacationLine := fmt.Sprintf("Vacation days used: %d", vacationDays)
-	personalLine := fmt.Sprintf("Personal days used: %d", personalDays)
-
-	colors.PrintText(vacationLine)
-	colors.PrintText(personalLine)
 }
 
 // generateLegendLines creates legend lines for side panel.
@@ -399,7 +275,6 @@ func (rs *Service) generateLegendLines() string {
 	return lines.String()
 }
 
-// generateCategoriesLines creates category lines for side panel.
 func (rs *Service) generateCategoriesLines(
 	labeledCategories []storage.LabeledCategory,
 	width int,
@@ -420,21 +295,7 @@ func (rs *Service) generateCategoriesLines(
 			ItemStyle(colors.Text().Width(width - 4))
 
 		for _, entry := range category.Entries {
-			startStr := entry.DateStart.Format("02.01")
-			endStr := entry.DateEnd.Format("02.01")
-
-			totalDays := int(entry.DateEnd.Sub(entry.DateStart).Hours()/24) + 1
-			var daysText string
-			if totalDays == 1 {
-				daysText = "1 day"
-			} else {
-				daysText = fmt.Sprintf("%d days", totalDays)
-			}
-
-			dateRangeText := fmt.Sprintf("%s-%s", startStr, endStr)
-			techInfo := fmt.Sprintf("%s (%s)", dateRangeText, daysText)
-			entryLine := fmt.Sprintf("%s - %s", techInfo, entry.Label)
-			l.Item(entryLine)
+			l.Item(entry.String())
 		}
 
 		lines.WriteString(l.String() + "\n")
@@ -526,18 +387,251 @@ func (rs *Service) RenderCompactYearView() {
 	rs.RenderCompactYearViewWithSidePanel(nil)
 }
 
-func (rs *Service) RenderCompactYearViewWithSidePanel(labeledCategories []storage.LabeledCategory) {
+// RenderThreeColumnView renders the calendar in a 3-column format:
+// Column 1: Month names aligned with 1st day
+// Column 2: Continuous calendar without month gaps
+// Column 3: Plans aligned to start dates
+func (rs *Service) RenderThreeColumnView(
+	labeledCategories []storage.LabeledCategory,
+) {
+	monthNamesColumn := rs.generateMonthNamesColumn()
+	continuousCalendarColumn := rs.generateContinuousCalendarColumn()
+	plansColumn := rs.generateCatColumnInVerticalLayout(labeledCategories)
+
+	maxHeight := max(
+		len(strings.Split(monthNamesColumn, "\n")),
+		len(strings.Split(continuousCalendarColumn, "\n")),
+		len(strings.Split(plansColumn, "\n")),
+	)
+
+	for i := range maxHeight {
+		var monthLine, calendarLine, plansLine string
+
+		monthLines := strings.Split(monthNamesColumn, "\n")
+		calendarLines := strings.Split(continuousCalendarColumn, "\n")
+		plansLines := strings.Split(plansColumn, "\n")
+
+		if i < len(monthLines) {
+			monthLine = monthLines[i]
+		} else {
+			monthLine = strings.Repeat(" ", 12)
+		}
+
+		if i < len(calendarLines) {
+			calendarLine = calendarLines[i]
+		} else {
+			calendarLine = strings.Repeat(" ", 53)
+		}
+
+		if i < len(plansLines) {
+			plansLine = plansLines[i]
+		} else {
+			plansLine = ""
+		}
+
+		fmt.Printf("%-12s  %-53s  %s\n", monthLine, calendarLine, plansLine)
+	}
+
+	fmt.Println()
+
+	rs.renderLegendAndStatistics()
+}
+
+// generateMonthNamesColumn creates the first column with month names
+func (rs *Service) generateMonthNamesColumn() string {
+	var lines []string
+
+	lines = append(lines, "")
+
+	currentDate := time.Date(rs.year, 1, 1, 0, 0, 0, 0, time.Local)
+
+	// Calculate starting weekday offset
+	startWeekday := int(currentDate.Weekday())
+	if rs.appConfig.Rendering.FirstWeekday == 0 { // Monday as first day
+		startWeekday = (startWeekday - 1 + 7) % 7
+	}
+
+	// Add empty lines for initial offset to align with first week
+	for i := 0; i < startWeekday; i++ {
+		lines = append(lines, "")
+	}
+
+	// Add month names at the start of each month
+	for month := 1; month <= 12; month++ {
+		firstDayOfMonth := time.Date(
+			rs.year,
+			time.Month(month),
+			1,
+			0,
+			0,
+			0,
+			0,
+			time.Local,
+		)
+
+		// Calculate which week line this month starts on
+		daysSinceStart := int(
+			firstDayOfMonth.Sub(time.Date(rs.year, 1, 1, 0, 0, 0, 0, time.Local)).
+				Hours() /
+				24,
+		)
+		weekIndex := 1 + (startWeekday+daysSinceStart)/7 // +1 for header line
+
+		// Ensure we have enough lines
+		for len(lines) <= weekIndex {
+			lines = append(lines, "")
+		}
+
+		// Place month name
+		if lines[weekIndex] == "" {
+			lines[weekIndex] = firstDayOfMonth.Month().String()
+		}
+	}
+
+	// Fill remaining lines to match calendar height
+	calendarLines := strings.Split(rs.generateContinuousCalendarColumn(), "\n")
+	for len(lines) < len(calendarLines) {
+		lines = append(lines, "")
+	}
+
+	return colors.Text().Render(strings.Join(lines, "\n"))
+}
+
+// generateContinuousCalendarColumn creates the continuous calendar without month breaks
+func (rs *Service) generateContinuousCalendarColumn() string {
+	var lines []string
+
+	weekdayNames := []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"}
+	if rs.appConfig.Rendering.FirstWeekday == 0 {
+		weekdayNames = []string{"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"}
+	}
+
+	header := strings.Join(weekdayNames, " ")
+	header = colors.Text().Render(header)
+	lines = append(lines, header)
+
+	// Start from first day of year
+	currentDate := time.Date(rs.year, 1, 1, 0, 0, 0, 0, time.Local)
+
+	// Calculate starting weekday offset
+	startWeekday := int(currentDate.Weekday())
+	if rs.appConfig.Rendering.FirstWeekday == 0 {
+		startWeekday = (startWeekday - 1 + 7) % 7
+	}
+
+	// Create the first week with leading spaces
+	var weekDays []string
+	for i := 0; i < startWeekday; i++ {
+		weekDays = append(weekDays, "  ")
+	}
+
+	// Generate all days of the year
+	for currentDate.Year() == rs.year {
+		dayStr := fmt.Sprintf("%2d", currentDate.Day())
+
+		// Apply styling if the day has a category
+		if info, exists := rs.styleService.GetDayStyle(currentDate); exists {
+			categoryStyle := rs.styleService.GetCategoryStyle(info.Category)
+			dayStr = categoryStyle.Render(dayStr)
+		} else {
+			dayStr = colors.Text().Render(dayStr)
+		}
+
+		weekDays = append(weekDays, dayStr)
+
+		// When we have 7 days, complete the week
+		if len(weekDays) == 7 {
+			lines = append(lines, strings.Join(weekDays, " "))
+			weekDays = []string{}
+		}
+
+		currentDate = currentDate.AddDate(0, 0, 1)
+	}
+
+	// Add the last week if it has remaining days
+	if len(weekDays) > 0 {
+		// Pad remaining days with spaces
+		for len(weekDays) < 7 {
+			weekDays = append(weekDays, "  ")
+		}
+		lines = append(lines, strings.Join(weekDays, " "))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (rs *Service) generateCatColumnInVerticalLayout(
+	labeledCategories []storage.LabeledCategory,
+) string {
+	if len(labeledCategories) == 0 {
+		return strings.Repeat(
+			"\n",
+			54,
+		)
+	}
+
+	weekPlans := make(map[int][]string)
+
+	for _, category := range labeledCategories {
+		for _, entry := range category.Entries {
+			_, weekNum := entry.DateStart.ISOWeek()
+			planText := colors.Text().Render(entry.String())
+			weekPlans[weekNum] = append(weekPlans[weekNum], planText)
+		}
+	}
+
+	var lines []string
+
+	lines = append(lines, "") // Header line
+
+	maxWeeksInYear := 53
+
+	for week := 1; week <= maxWeeksInYear; week++ {
+		if plans, exists := weekPlans[week]; exists && len(plans) > 0 {
+			for _, plan := range plans {
+				lines = append(lines, plan)
+			}
+		} else {
+			lines = append(lines, "")
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// renderLegendAndStatistics adds legend and statistics at the bottom
+func (rs *Service) renderLegendAndStatistics() {
+	maxWidth := rs.maxWidthInChars
+
+	legend := rs.generateLegendLines()
+	fmt.Println(legend)
+
+	stats := rs.generateStatsLines(maxWidth)
+	fmt.Println(stats)
+}
+
+func (rs *Service) RenderCompactYearViewWithSidePanel(
+	labeledCategories []storage.LabeledCategory,
+) {
 	allMonths := rs.computeMonthBlocks()
 
 	useSidePanel, calendarCols, sidePanelWidth := rs.calculateLayout()
 
 	if useSidePanel && labeledCategories != nil {
-		rs.renderTwoColumnLayout(allMonths, calendarCols, sidePanelWidth, labeledCategories)
+		rs.renderTwoColumnLayout(
+			allMonths,
+			calendarCols,
+			sidePanelWidth,
+			labeledCategories,
+		)
 		return
 	}
 
 	leftContent := rs.createLeftSidePanelContent(allMonths, calendarCols)
-	rightContent := rs.createRightSidePanelContent(labeledCategories, rs.maxWidthInChars)
+	rightContent := rs.createRightSidePanelContent(
+		labeledCategories,
+		rs.maxWidthInChars,
+	)
 	mergedCols := lipgloss.JoinVertical(
 		lipgloss.Left,
 		leftContent,
@@ -554,7 +648,10 @@ func (rs *Service) renderTwoColumnLayout(
 ) {
 	paddingWidth := 4
 	leftContent := rs.createLeftSidePanelContent(allMonths, calendarCols)
-	rightContent := rs.createRightSidePanelContent(labeledCategories, sidePanelWidth-paddingWidth)
+	rightContent := rs.createRightSidePanelContent(
+		labeledCategories,
+		sidePanelWidth-paddingWidth,
+	)
 
 	mergedCols := lipgloss.JoinHorizontal(
 		lipgloss.Top,

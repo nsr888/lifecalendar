@@ -68,7 +68,28 @@ type CategoryEntry struct {
 	Label     string
 }
 
-func (s *CSVStorage) LoadCategoryByYear(year int) (*entity.CategoryName, error) {
+func (ce CategoryEntry) String() string {
+	startStr := ce.DateStart.Format("02.01")
+	endStr := ce.DateEnd.Format("02.01")
+
+	totalDays := int(ce.DateEnd.Sub(ce.DateStart).Hours()/24) + 1
+	var daysText string
+	if totalDays == 1 {
+		daysText = "1 day"
+	} else {
+		daysText = fmt.Sprintf("%d days", totalDays)
+	}
+
+	dateRangeText := fmt.Sprintf("%s-%s", startStr, endStr)
+	techInfo := fmt.Sprintf("%s (%s)", dateRangeText, daysText)
+	entryLine := fmt.Sprintf("%s - %s", techInfo, ce.Label)
+
+	return entryLine
+}
+
+func (s *CSVStorage) LoadCategoryByYear(
+	year int,
+) (*entity.CategoryName, error) {
 	dataDir := fmt.Sprintf("%s/%d", s.dataFolder, year)
 
 	categoryFiles, err := s.getCategoryToFileMap(dataDir)
@@ -79,9 +100,16 @@ func (s *CSVStorage) LoadCategoryByYear(year int) (*entity.CategoryName, error) 
 	categories := make(map[string]*entity.Category)
 
 	for categoryName, filename := range categoryFiles {
-		category, loadErr := s.loadCategoryFromFile(filename, entity.CategoryType(categoryName))
+		category, loadErr := s.loadCategoryFromFile(
+			filename,
+			entity.CategoryType(categoryName),
+		)
 		if loadErr != nil {
-			return nil, fmt.Errorf("failed to load category %s: %w", categoryName, loadErr)
+			return nil, fmt.Errorf(
+				"failed to load category %s: %w",
+				categoryName,
+				loadErr,
+			)
 		}
 		categories[categoryName] = category
 	}
@@ -93,7 +121,9 @@ func (s *CSVStorage) LoadCategoryByYear(year int) (*entity.CategoryName, error) 
 }
 
 // getCategoryToFileMap scans the data directory for CSV files and returns a map of category name -> filename.
-func (s *CSVStorage) getCategoryToFileMap(dataDir string) (map[string]string, error) {
+func (s *CSVStorage) getCategoryToFileMap(
+	dataDir string,
+) (map[string]string, error) {
 	categoryFiles := make(map[string]string)
 
 	entries, err := os.ReadDir(dataDir)
@@ -154,7 +184,11 @@ func (s *CSVStorage) loadCategoryFromFile(
 
 		entry, parseErr := s.parseCSVRecord(record, headers)
 		if parseErr != nil {
-			return nil, fmt.Errorf("failed to parse record on line %d: %w", i+1, parseErr)
+			return nil, fmt.Errorf(
+				"failed to parse record on line %d: %w",
+				i+1,
+				parseErr,
+			)
 		}
 
 		category.Entries = append(category.Entries, entry)
@@ -191,7 +225,10 @@ func (s *CSVStorage) parseDateField(
 }
 
 // parseDates parses start and end dates from a CSV record.
-func (s *CSVStorage) parseDates(record []string, headerMap map[string]int) (time.Time, time.Time) {
+func (s *CSVStorage) parseDates(
+	record []string,
+	headerMap map[string]int,
+) (time.Time, time.Time) {
 	var startDate, endDate time.Time
 
 	if date, ok := s.parseDateField(record, headerMap, dateStartCol); ok {
@@ -214,7 +251,10 @@ func (s *CSVStorage) parseDates(record []string, headerMap map[string]int) (time
 }
 
 // parseLabel parses the label from a CSV record.
-func (s *CSVStorage) parseLabel(record []string, headerMap map[string]int) string {
+func (s *CSVStorage) parseLabel(
+	record []string,
+	headerMap map[string]int,
+) string {
 	if idx, exists := headerMap[labelCol]; exists && idx < len(record) {
 		return strings.TrimSpace(record[idx])
 	}
@@ -224,7 +264,9 @@ func (s *CSVStorage) parseLabel(record []string, headerMap map[string]int) strin
 	return ""
 }
 
-func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEntry, error) {
+func (s *CSVStorage) parseCSVRecord(
+	record, headers []string,
+) (entity.CategoryEntry, error) {
 	var entry entity.CategoryEntry
 
 	headerMap := s.createHeaderMap(headers)
@@ -242,7 +284,9 @@ func (s *CSVStorage) parseCSVRecord(record, headers []string) (entity.CategoryEn
 	return entry, nil
 }
 
-func (s *CSVStorage) LoadLabeledCategories(year int) ([]LabeledCategory, error) {
+func (s *CSVStorage) LoadLabeledCategories(
+	year int,
+) ([]LabeledCategory, error) {
 	data, err := s.LoadCategoryByYear(year)
 	if err != nil {
 		return nil, err

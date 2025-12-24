@@ -121,7 +121,14 @@ func (s *Service) renderAllYears(cfg *config.Config, styleService styles.StyleSe
 		}
 
 		renderService.RenderYearTitle(year)
-		renderService.RenderCompactYearViewWithSidePanel(labeledCategories)
+
+		// Choose rendering format based on config
+		switch cfg.Rendering.Format {
+		case "three_column":
+			renderService.RenderThreeColumnView(labeledCategories)
+		default:
+			renderService.RenderCompactYearViewWithSidePanel(labeledCategories)
+		}
 	}
 
 	return nil
