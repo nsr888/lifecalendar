@@ -31,6 +31,7 @@ type CategoryConfig struct {
 type Config struct {
 	Years      []int  `toml:"years"`
 	DataFolder string `toml:"data_folder"`
+	JSONPlan   bool   // CLI flag for JSON output mode
 	Rendering  struct {
 		MaxWidthInChars int    `toml:"max_width_in_chars"`
 		FirstWeekday    int    `toml:"first_weekday"`

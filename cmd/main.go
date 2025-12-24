@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 
@@ -12,11 +13,17 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "APP: ", log.LstdFlags)
 
+	var jsonPlan bool
+	flag.BoolVar(&jsonPlan, "json-plan", false, "Output vacation plans as JSON with weekend/holiday data")
+	flag.Parse()
+
 	var appConfig *config.Config
 	var err error
 
-	if len(os.Args) > 1 {
-		appConfig, err = config.Load(os.Args[1])
+	// Get config file path from remaining arguments
+	args := flag.Args()
+	if len(args) > 0 {
+		appConfig, err = config.Load(args[0])
 	} else {
 		appConfig, err = config.LoadDefault()
 	}
@@ -25,10 +32,19 @@ func main() {
 		logger.Fatalf("Failed to load app config: %v", err)
 	}
 
+	// Store JSON plan flag in config
+	appConfig.JSONPlan = jsonPlan
+
 	csvStorage := storage.NewCSVStorage(appConfig.GetDataFolderWithFallback())
 	appService := app.NewService(csvStorage, logger)
 
-	if runErr := appService.Run(appConfig); runErr != nil {
-		logger.Fatalf("Application failed: %v", runErr)
+	if jsonPlan {
+		if runErr := appService.RunJSONPlan(appConfig); runErr != nil {
+			logger.Fatalf("Application failed: %v", runErr)
+		}
+	} else {
+		if runErr := appService.Run(appConfig); runErr != nil {
+			logger.Fatalf("Application failed: %v", runErr)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"time"
@@ -40,13 +41,19 @@ func (s *Service) Run(initialConfig *config.Config) error {
 	return s.renderAllYears(initialConfig, styleService)
 }
 
-func (s *Service) computeAllDayStyles(cfg *config.Config) (map[time.Time]entity.DayInfo, error) {
+func (s *Service) computeAllDayStyles(
+	cfg *config.Config,
+) (map[time.Time]entity.DayInfo, error) {
 	allDayStyles := make(map[time.Time]entity.DayInfo)
 
 	for _, year := range cfg.Years {
 		dayStyles, err := s.computeDayStylesForYear(year, cfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compute day styles for year %d: %w", year, err)
+			return nil, fmt.Errorf(
+				"failed to compute day styles for year %d: %w",
+				year,
+				err,
+			)
 		}
 		maps.Copy(allDayStyles, dayStyles)
 	}
@@ -54,14 +61,20 @@ func (s *Service) computeAllDayStyles(cfg *config.Config) (map[time.Time]entity.
 	return allDayStyles, nil
 }
 
-func (s *Service) LoadCategoryByYearWithGenerated(year int) (*entity.CategoryName, error) {
+func (s *Service) LoadCategoryByYearWithGenerated(
+	year int,
+) (*entity.CategoryName, error) {
 	if !s.storage.IsYearDataExists(year) {
 		return nil, fmt.Errorf("data for year does not exist: %d", year)
 	}
 
 	dataConfig, err := s.storage.LoadCategoryByYear(year)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load data config for year %d: %w", year, err)
+		return nil, fmt.Errorf(
+			"failed to load data config for year %d: %w",
+			year,
+			err,
+		)
 	}
 
 	weekendDays := generateWeekendDays(year)
@@ -105,11 +118,18 @@ func (s *Service) computeDayStylesForYear(
 	return styles.ComputeYearStyles(cfg, year, dataConfig)
 }
 
-func (s *Service) renderAllYears(cfg *config.Config, styleService styles.StyleService) error {
+func (s *Service) renderAllYears(
+	cfg *config.Config,
+	styleService styles.StyleService,
+) error {
 	for _, year := range cfg.Years {
 		dataConfig, err := s.LoadCategoryByYearWithGenerated(year)
 		if err != nil {
-			return fmt.Errorf("failed to load data config for year %d: %w", year, err)
+			return fmt.Errorf(
+				"failed to load data config for year %d: %w",
+				year,
+				err,
+			)
 		}
 
 		renderService := render.NewService(year, dataConfig, cfg, styleService)
@@ -117,7 +137,11 @@ func (s *Service) renderAllYears(cfg *config.Config, styleService styles.StyleSe
 
 		labeledCategories, err := s.storage.LoadLabeledCategories(year)
 		if err != nil {
-			return fmt.Errorf("failed to load labeled categories for year %d: %w", year, err)
+			return fmt.Errorf(
+				"failed to load labeled categories for year %d: %w",
+				year,
+				err,
+			)
 		}
 
 		renderService.RenderYearTitle(year)
@@ -139,7 +163,16 @@ func generateCurrentDay(year int) map[time.Time]struct{} {
 
 	now := time.Now()
 	if now.Year() == year {
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+		today := time.Date(
+			now.Year(),
+			now.Month(),
+			now.Day(),
+			0,
+			0,
+			0,
+			0,
+			time.Local,
+		)
 		currentDay[today] = struct{}{}
 	}
 
@@ -152,8 +185,18 @@ func generateWeekendDays(year int) map[time.Time]struct{} {
 	for month := 1; month <= 12; month++ {
 		daysInMonth := daysIn(month, year)
 		for day := 1; day <= daysInMonth; day++ {
-			date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
-			if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
+			date := time.Date(
+				year,
+				time.Month(month),
+				day,
+				0,
+				0,
+				0,
+				0,
+				time.Local,
+			)
+			if date.Weekday() == time.Saturday ||
+				date.Weekday() == time.Sunday {
 				weekendDays[date] = struct{}{}
 			}
 		}
@@ -172,7 +215,16 @@ func generateOddWeeks(year int) map[time.Time]struct{} {
 	for month := 1; month <= 12; month++ {
 		daysInMonth := daysIn(month, year)
 		for day := 1; day <= daysInMonth; day++ {
-			date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+			date := time.Date(
+				year,
+				time.Month(month),
+				day,
+				0,
+				0,
+				0,
+				0,
+				time.Local,
+			)
 			_, week := date.ISOWeek()
 			if week%2 == 1 {
 				oddWeeks[date] = struct{}{}
@@ -189,7 +241,16 @@ func generateEvenWeeks(year int) map[time.Time]struct{} {
 	for month := 1; month <= 12; month++ {
 		daysInMonth := daysIn(month, year)
 		for day := 1; day <= daysInMonth; day++ {
-			date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+			date := time.Date(
+				year,
+				time.Month(month),
+				day,
+				0,
+				0,
+				0,
+				0,
+				time.Local,
+			)
 			_, week := date.ISOWeek()
 			if week%2 == 0 {
 				evenWeeks[date] = struct{}{}
@@ -198,4 +259,182 @@ func generateEvenWeeks(year int) map[time.Time]struct{} {
 	}
 
 	return evenWeeks
+}
+
+func (s *Service) countWeekendsAndHolidays(
+	start, end time.Time,
+	holidays map[time.Time]struct{},
+) (weekendCount, holidayCount int) {
+	for current := start; !current.After(end); current = current.AddDate(0, 0, 1) {
+		if current.Weekday() == time.Saturday ||
+			current.Weekday() == time.Sunday {
+			weekendCount++
+		}
+
+		if _, isHoliday := holidays[current]; isHoliday {
+			holidayCount++
+		}
+	}
+	return
+}
+
+func (s *Service) RunJSONPlan(cfg *config.Config) error {
+	var allPlans []entity.VacationPlanJSON
+	var potentialPlans []entity.PotentialVacation
+	var allPlansWithPotential []entity.EnhancedJSONPlanResponse
+
+	for _, year := range cfg.Years {
+		labeledCategories, err := s.storage.LoadLabeledCategories(year)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to load labeled categories for year %d: %w",
+				year,
+				err,
+			)
+		}
+
+		publicHolidays := make(map[time.Time]struct{})
+		dataConfig, err := s.storage.LoadCategoryByYear(year)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to load data config for year %d: %w",
+				year,
+				err,
+			)
+		}
+		if holidays, exists := dataConfig.Categories["public_holidays"]; exists {
+			publicHolidays = holidays.Dates
+		}
+
+		for _, category := range labeledCategories {
+			for _, entry := range category.Entries {
+				weekendCount, holidayCount := s.countWeekendsAndHolidays(
+					entry.DateStart,
+					entry.DateEnd,
+					publicHolidays,
+				)
+
+				totalDays := int(
+					entry.DateEnd.Sub(entry.DateStart).Hours()/24,
+				) + 1
+
+				plan := entity.VacationPlanJSON{
+					DateStart:    entry.DateStart.Format("2006-01-02"),
+					DateEnd:      entry.DateEnd.Format("2006-01-02"),
+					Label:        entry.Label,
+					WeekendCount: weekendCount,
+					HolidayCount: holidayCount,
+					TotalDays:    totalDays,
+				}
+
+				allPlans = append(allPlans, plan)
+			}
+		}
+
+		yearPotentialPlans, err := s.findConsecutiveWeekendHolidayBlocks(
+			year,
+			publicHolidays,
+			allPlans,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to find potential vacation plans for year %d: %w",
+				year,
+				err,
+			)
+		}
+
+		potentialPlans = append(potentialPlans, yearPotentialPlans...)
+		allPlansWithPotential = append(
+			allPlansWithPotential,
+			entity.EnhancedJSONPlanResponse{
+				ExistingVacations:  allPlans,
+				PotentialVacations: potentialPlans,
+				Year:               year,
+			},
+		)
+	}
+
+	jsonData, err := json.Marshal(allPlansWithPotential)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	fmt.Println(string(jsonData))
+	return nil
+}
+
+func (s *Service) findConsecutiveWeekendHolidayBlocks(
+	year int,
+	holidays map[time.Time]struct{},
+	existingPlans []entity.VacationPlanJSON,
+) ([]entity.PotentialVacation, error) {
+	nonWorkingDays := make(map[time.Time]bool)
+
+	weekendDays := generateWeekendDays(year)
+	for date := range weekendDays {
+		nonWorkingDays[date] = true
+	}
+
+	for date := range holidays {
+		nonWorkingDays[date] = true
+	}
+
+	for _, plan := range existingPlans {
+		startDate, err := time.ParseInLocation("2006-01-02", plan.DateStart, time.Local)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse start date: %w", err)
+		}
+		endDate, err := time.ParseInLocation("2006-01-02", plan.DateEnd, time.Local)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse end date: %w", err)
+		}
+
+		for current := startDate; !current.After(endDate); current = current.AddDate(0, 0, 1) {
+			nonWorkingDays[current] = false
+		}
+	}
+
+	startDate := time.Date(year, time.January, 1, 0, 0, 0, 0, time.Local)
+	endDate := time.Date(year, time.December, 31, 0, 0, 0, 0, time.Local)
+
+	var potentialVacations []entity.PotentialVacation
+	var currentSequence []time.Time
+
+	for current := startDate; !current.After(endDate); current = current.AddDate(0, 0, 1) {
+		if nonWorkingDays[current] {
+			currentSequence = append(currentSequence, current)
+		} else {
+			if len(currentSequence) > 2 {
+				firstDay := currentSequence[0]
+				lastDay := currentSequence[len(currentSequence)-1]
+
+				weekendCount := 0
+				holidayCount := 0
+				for _, date := range currentSequence {
+					if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
+						weekendCount++
+					}
+					if _, isHoliday := holidays[date]; isHoliday {
+						holidayCount++
+					}
+				}
+
+				potential := entity.PotentialVacation{
+					DateStart:    firstDay.Format("2006-01-02"),
+					DateEnd:      lastDay.Format("2006-01-02"),
+					WeekendCount: weekendCount,
+					HolidayCount: holidayCount,
+					TotalDays:    len(currentSequence),
+					Description:  fmt.Sprintf("%d-day natural break: %d weekends, %d holidays", len(currentSequence), weekendCount, holidayCount),
+				}
+
+				potentialVacations = append(potentialVacations, potential)
+			}
+
+			currentSequence = []time.Time{}
+		}
+	}
+
+	return potentialVacations, nil
 }
