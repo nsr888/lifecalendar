@@ -1,11 +1,13 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"time"
 
+	"github.com/nsr888/lifecalendar/internal/ai"
 	"github.com/nsr888/lifecalendar/internal/config"
 	"github.com/nsr888/lifecalendar/internal/entity"
 	"github.com/nsr888/lifecalendar/internal/render"
@@ -279,80 +281,9 @@ func (s *Service) countWeekendsAndHolidays(
 }
 
 func (s *Service) RunJSONPlan(cfg *config.Config) error {
-	var allPlans []entity.VacationPlanJSON
-	var potentialPlans []entity.PotentialVacation
-	var allPlansWithPotential []entity.EnhancedJSONPlanResponse
-
-	for _, year := range cfg.Years {
-		labeledCategories, err := s.storage.LoadLabeledCategories(year)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to load labeled categories for year %d: %w",
-				year,
-				err,
-			)
-		}
-
-		publicHolidays := make(map[time.Time]struct{})
-		dataConfig, err := s.storage.LoadCategoryByYear(year)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to load data config for year %d: %w",
-				year,
-				err,
-			)
-		}
-		if holidays, exists := dataConfig.Categories["public_holidays"]; exists {
-			publicHolidays = holidays.Dates
-		}
-
-		for _, category := range labeledCategories {
-			for _, entry := range category.Entries {
-				weekendCount, holidayCount := s.countWeekendsAndHolidays(
-					entry.DateStart,
-					entry.DateEnd,
-					publicHolidays,
-				)
-
-				totalDays := int(
-					entry.DateEnd.Sub(entry.DateStart).Hours()/24,
-				) + 1
-
-				plan := entity.VacationPlanJSON{
-					DateStart:    entry.DateStart.Format("2006-01-02"),
-					DateEnd:      entry.DateEnd.Format("2006-01-02"),
-					Label:        entry.Label,
-					WeekendCount: weekendCount,
-					HolidayCount: holidayCount,
-					TotalDays:    totalDays,
-				}
-
-				allPlans = append(allPlans, plan)
-			}
-		}
-
-		yearPotentialPlans, err := s.findConsecutiveWeekendHolidayBlocks(
-			year,
-			publicHolidays,
-			allPlans,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to find potential vacation plans for year %d: %w",
-				year,
-				err,
-			)
-		}
-
-		potentialPlans = append(potentialPlans, yearPotentialPlans...)
-		allPlansWithPotential = append(
-			allPlansWithPotential,
-			entity.EnhancedJSONPlanResponse{
-				ExistingVacations:  allPlans,
-				PotentialVacations: potentialPlans,
-				Year:               year,
-			},
-		)
+	allPlansWithPotential, err := s.generateCalendarJSON(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to generate calendar JSON: %w", err)
 	}
 
 	jsonData, err := json.Marshal(allPlansWithPotential)
@@ -437,4 +368,110 @@ func (s *Service) findConsecutiveWeekendHolidayBlocks(
 	}
 
 	return potentialVacations, nil
+}
+
+func (s *Service) generateCalendarJSON(cfg *config.Config) ([]entity.EnhancedJSONPlanResponse, error) {
+	var allPlansWithPotential []entity.EnhancedJSONPlanResponse
+
+	for _, year := range cfg.Years {
+		labeledCategories, err := s.storage.LoadLabeledCategories(year)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to load labeled categories for year %d: %w",
+				year,
+				err,
+			)
+		}
+
+		publicHolidays := make(map[time.Time]struct{})
+		dataConfig, err := s.storage.LoadCategoryByYear(year)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to load data config for year %d: %w",
+				year,
+				err,
+			)
+		}
+		if holidays, exists := dataConfig.Categories["public_holidays"]; exists {
+			publicHolidays = holidays.Dates
+		}
+
+		var allPlans []entity.VacationPlanJSON
+		for _, category := range labeledCategories {
+			for _, entry := range category.Entries {
+				weekendCount, holidayCount := s.countWeekendsAndHolidays(
+					entry.DateStart,
+					entry.DateEnd,
+					publicHolidays,
+				)
+
+				totalDays := int(
+					entry.DateEnd.Sub(entry.DateStart).Hours()/24,
+				) + 1
+
+				plan := entity.VacationPlanJSON{
+					DateStart:    entry.DateStart.Format("2006-01-02"),
+					DateEnd:      entry.DateEnd.Format("2006-01-02"),
+					Label:        entry.Label,
+					WeekendCount: weekendCount,
+					HolidayCount: holidayCount,
+					TotalDays:    totalDays,
+				}
+
+				allPlans = append(allPlans, plan)
+			}
+		}
+
+		yearPotentialPlans, err := s.findConsecutiveWeekendHolidayBlocks(
+			year,
+			publicHolidays,
+			allPlans,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to find potential vacation plans for year %d: %w",
+				year,
+				err,
+			)
+		}
+
+		allPlansWithPotential = append(
+			allPlansWithPotential,
+			entity.EnhancedJSONPlanResponse{
+				ExistingVacations:  allPlans,
+				PotentialVacations: yearPotentialPlans,
+				Year:               year,
+			},
+		)
+	}
+
+	return allPlansWithPotential, nil
+}
+
+func (s *Service) RunAIReview(cfg *config.Config) error {
+	allPlansWithPotential, err := s.generateCalendarJSON(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to generate calendar JSON: %w", err)
+	}
+
+	jsonData, err := json.Marshal(allPlansWithPotential)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	aiService, err := ai.NewService()
+	if err != nil {
+		return fmt.Errorf("failed to create AI service: %w", err)
+	}
+
+	review, err := aiService.ReviewCalendar(context.Background(), string(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to get AI review: %w", err)
+	}
+
+	fmt.Println("AI Calendar Review:")
+	fmt.Println("==================")
+	fmt.Println(review)
+
+	return nil
 }

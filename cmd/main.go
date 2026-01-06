@@ -14,7 +14,9 @@ func main() {
 	logger := log.New(os.Stdout, "APP: ", log.LstdFlags)
 
 	var jsonPlan bool
+	var aiReview bool
 	flag.BoolVar(&jsonPlan, "json-plan", false, "Output vacation plans as JSON with weekend/holiday data")
+	flag.BoolVar(&aiReview, "ai-review", false, "Review vacation plans with AI and print analysis")
 	flag.Parse()
 
 	var appConfig *config.Config
@@ -32,13 +34,18 @@ func main() {
 		logger.Fatalf("Failed to load app config: %v", err)
 	}
 
-	// Store JSON plan flag in config
+	// Store flags in config
 	appConfig.JSONPlan = jsonPlan
+	appConfig.AIReview = aiReview
 
 	csvStorage := storage.NewCSVStorage(appConfig.GetDataFolderWithFallback())
 	appService := app.NewService(csvStorage, logger)
 
-	if jsonPlan {
+	if aiReview {
+		if runErr := appService.RunAIReview(appConfig); runErr != nil {
+			logger.Fatalf("Application failed: %v", runErr)
+		}
+	} else if jsonPlan {
 		if runErr := appService.RunJSONPlan(appConfig); runErr != nil {
 			logger.Fatalf("Application failed: %v", runErr)
 		}
